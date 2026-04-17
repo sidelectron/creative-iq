@@ -31,7 +31,8 @@ jobs:
       - name: Pytest
         run: python -m pytest tests/unit -v
 
-      - name: dbt compile
+      # Parse validates SQL + refs without a warehouse (dbt compile hits Snowflake login).
+      - name: dbt parse (no warehouse)
         run: |
           python - <<'PY'
           import os
@@ -57,10 +58,9 @@ jobs:
           )
           PY
           cd dbt_project
-          # dbt-core installs a `dbt` console script; `python -m dbt` has no __main__.
           export DBT_PROFILES_DIR="${RUNNER_TEMP}/dbt"
           dbt deps --project-dir .
-          dbt compile --project-dir .
+          dbt parse --project-dir .
         shell: bash
 
   frontend:
