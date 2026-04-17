@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: creativeiq-chat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: creativeiq-chat
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: creativeiq-chat
+    spec:
+      serviceAccountName: creativeiq-chat
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: creativeiq-chat
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: chat
+          image: creativeiq-chat:latest
+          ports:
+            - containerPort: 8010
+          envFrom:
+            - configMapRef:
+                name: creativeiq-app-config
+            - secretRef:
+                name: creativeiq-app-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8010
+            initialDelaySeconds: 25
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8010
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000

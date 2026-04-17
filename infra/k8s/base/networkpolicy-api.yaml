@@ -1,0 +1,57 @@
+# API: ingress from GCLB health ranges + chat + CI smoke; egress DNS, metadata (WI), VPC data plane, HTTPS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creativeiq-api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: creativeiq-api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 35.191.0.0/16
+    - from:
+        - ipBlock:
+            cidr: 130.211.0.0/22
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: creativeiq-chat
+    - from:
+        - podSelector:
+            matchLabels:
+              run: ci-smoke-health
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - protocol: TCP
+          port: 80
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443

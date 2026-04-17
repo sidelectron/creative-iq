@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: stg_ads
+    description: "Cleaned ad records (soft-delete filtered, deduped by latest loaded_at)."
+    columns:
+      - name: ad_id
+        description: "Ad UUID from operational system."
+        tests: [not_null, unique]
+      - name: platform
+        description: "Normalized platform name."
+        tests:
+          - accepted_values:
+              values: ["meta", "tiktok", "youtube", "instagram"]
+
+  - name: stg_performance
+    description: "Daily ad performance with typed metrics and guarded KPI calculations."
+    columns:
+      - name: ad_id
+        description: "Ad UUID."
+        tests: [not_null]
+      - name: date
+        description: "Performance date."
+        tests: [not_null]
+      - name: impressions
+        description: "Impression count."
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ["ad_id", "date"]
+
+  - name: stg_fingerprints
+    description: "Typed flattened creative fingerprint attributes (latest per ad)."
+    columns:
+      - name: ad_id
+        description: "Ad UUID."
+        tests: [not_null, unique]
+      - name: hook_type
+        tests:
+          - accepted_values:
+              values: ["problem_first", "product_first", "testimonial", "question", "shock_curiosity", "lifestyle", "ugc_style", "meme_humor"]
+      - name: narrative_arc
+        tests:
+          - accepted_values:
+              values: ["problem_solution", "demo_to_cta", "story_reveal", "comparison", "listicle", "day_in_life", "before_after"]
+      - name: emotional_tone
+        tests:
+          - accepted_values:
+              values: ["urgent", "aspirational", "funny", "educational", "emotional", "calm", "edgy", "luxurious"]
+      - name: cta_type
+        tests:
+          - accepted_values:
+              values: ["text_overlay", "verbal", "end_card", "inline_button", "swipe_up", "no_cta"]
+      - name: cta_placement
+        tests:
+          - accepted_values:
+              values: ["beginning", "middle", "end", "throughout"]
+      - name: product_prominence
+        tests:
+          - accepted_values:
+              values: ["hero", "supporting", "subtle", "absent"]
+      - name: human_presence
+        tests:
+          - accepted_values:
+              values: ["talking_head", "hands_only", "full_body_lifestyle", "multiple_people", "no_humans"]
+      - name: logo_position
+        tests:
+          - accepted_values:
+              values: ["top_left", "top_right", "bottom_left", "bottom_right", "center", "watermark", "end_card_only"]
+              quote: true
+      - name: text_overlay_style
+        tests:
+          - accepted_values:
+              values: ["minimal", "moderate", "text_heavy", "subtitles_only", "none"]
+      - name: background_setting
+        tests:
+          - accepted_values:
+              values: ["studio", "outdoor", "home", "office", "abstract", "mixed", "screen_recording"]
+      - name: music_style
+        tests:
+          - accepted_values:
+              values: ["upbeat", "calm", "dramatic", "trending_audio", "no_music", "sound_effects_only"]
+

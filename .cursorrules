@@ -1,0 +1,252 @@
+# ============================================================================
+# CREATIVEIQ (CREATIVE INTELLIGENCE PLATFORM) — CURSOR RULES
+# ============================================================================
+# Project: CreativeIQ — Creative Intelligence Layer for Ad Optimization
+# Stack: Python 3.12 | FastAPI | Google Cloud Platform | Gemini | Snowflake
+# Author: Bhargavi | Weekly Weights
+# ============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROJECT OVERVIEW
+# ─────────────────────────────────────────────────────────────────────────────
+# This is a production-grade agentic creative intelligence platform that:
+# 1. Ingests video ads from multiple sources (uploads, Meta Ad Library, TikTok)
+# 2. Decomposes each ad into 30+ measurable creative attributes using
+#    Gemini multimodal AI, ffmpeg, cv2, and librosa
+# 3. Links creative attributes to ad performance data
+# 4. Builds per-brand creative profiles that learn what works over time
+# 5. Provides a conversational AI interface (LangGraph) for brand managers
+#    to interact with the intelligence layer
+# 6. Designs and analyzes A/B tests with statistical rigor
+# 7. Generates optimized creative briefs based on accumulated brand knowledge
+#
+# The system maintains three types of knowledge:
+# - Quantitative Intelligence (Snowflake + dbt — attribute-performance scores)
+# - Contextual Memory (Postgres + pgvector — brand timeline, events, eras)
+# - Collaborative Reasoning (LangGraph chat — human-AI strategic dialogue)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TECH STACK — STRICTLY ENFORCED
+# ─────────────────────────────────────────────────────────────────────────────
+# Language:        Python 3.12 (all services)
+# Framework:       FastAPI (async, type-annotated)
+# AI/LLM:          Google Gemini 2.5 Pro/Flash (ALL LLM calls)
+# Orchestration:   LangGraph (multi-agent pipelines)
+# Database:        Cloud SQL for PostgreSQL 16 + pgvector extension
+# Data Warehouse:  Snowflake (analytical queries, dbt models)
+# Transforms:      dbt-core with dbt-snowflake adapter
+# Object Storage:  Google Cloud Storage (GCS)
+# Cache/Queue:     Memorystore for Redis
+# Task Queue:      Celery with Redis broker
+# Pipeline Orch:   Cloud Composer (managed Airflow)
+# Containers:      Docker + GKE (Google Kubernetes Engine)
+# Registry:        Artifact Registry (Docker images: creativeiq-api, etc.)
+# IaC:             Terraform (GCP provider)
+# CI/CD:           GitHub Actions → Artifact Registry → GKE
+# Monitoring:      Prometheus + Grafana + Cloud Logging
+# Video Processing: ffmpeg, OpenCV (cv2), librosa
+# Transcription:   Whisper (local) or Gemini audio
+# Auth:            JWT + Google Cloud IAM (RBAC)
+# Frontend:        React + TypeScript + Tailwind CSS
+#
+# DO NOT introduce AWS services (S3, RDS, EKS, Lambda, SQS, etc.)
+# DO NOT use OpenAI or Anthropic APIs for any LLM calls
+# DO NOT use LangChain — use LangGraph directly
+# DO NOT use MongoDB, DynamoDB, or any NoSQL database as primary store
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MONOREPO STRUCTURE
+# ─────────────────────────────────────────────────────────────────────────────
+# CreativeIQ/   (repository root)
+# ├── .cursorrules
+# ├── docker-compose.yml          ← local dev stack (single source of truth)
+# ├── pyproject.toml              ← project name: creativeiq
+# ├── .github/workflows/
+# ├── docs/
+# │   ├── PROJECT.md
+# │   ├── PHASE_1_SPEC.md
+# │   ├── SNOWFLAKE_SETUP.md
+# │   └── plans/                  ← optional execution plan copies
+# ├── services/
+# │   ├── api/                    ← FastAPI gateway
+# │   ├── ingestion/
+# │   ├── decomposition/
+# │   ├── profile_engine/
+# │   ├── ab_testing/
+# │   ├── chat/
+# │   └── generation/
+# ├── shared/
+# │   ├── models/
+# │   ├── config/
+# │   └── utils/
+# ├── dbt_project/
+# ├── infra/
+# │   ├── terraform/
+# │   ├── k8s/
+# │   └── docker/                 ← Dockerfiles per service (NOT compose root)
+# ├── airflow/dags/
+# ├── frontend/
+# ├── tests/
+# ├── scripts/
+# ├── Makefile
+# └── README.md
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PYTHON CODING STANDARDS
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Type hints on ALL function signatures — no exceptions
+# 2. Use Pydantic v2 models for all data validation and serialization
+# 3. Use async/await for all I/O-bound operations
+# 4. Use SQLAlchemy 2.0 style (select(), not legacy query())
+# 5. Use structured logging with structlog — no print() statements
+# 6. All env config through Pydantic Settings — no os.getenv() in code
+# 7. Explicit try/except with typed exceptions — never bare except
+# 8. Google-style docstrings on all public functions
+# 9. No wildcard imports (from x import *)
+# 10. Max function length: ~50 lines. Decompose if longer.
+# 11. Use pathlib.Path — not os.path
+# 12. Use datetime from standard lib with timezone-aware objects (UTC)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FASTAPI PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - All routes return Pydantic response models — never raw dicts
+# - Use Depends() for auth, db sessions, shared dependencies
+# - Use APIRouter per resource, grouped in routes/ directory
+# - All endpoints have explicit status_code and response_model
+# - Background tasks for anything >500ms
+# - WebSocket for chat with proper connection lifecycle
+# - Health check at /health and /ready for k8s probes
+# - CORS locked to frontend domain only
+# - Versioned API prefix: /api/v1/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATABASE PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - Alembic for ALL schema migrations — never raw DDL
+# - UUIDs as primary keys (uuid7 for time-sortable, generated in Python)
+# - JSONB for flexible schemas (fingerprints, profiles, metadata)
+# - pgvector for semantic search over brand memory
+# - Parameterized queries only — no f-string SQL
+# - Indexes on: brand_id, platform, created_at, ad_id
+# - Soft deletes with deleted_at — never hard delete user data
+# - Connection pooling via SQLAlchemy async engine
+# - Separate read replica connection for heavy queries
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GEMINI API PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - ALL LLM calls route through shared/utils/gemini.py
+# - Gemini 2.5 Pro: decomposition, strategy, complex analysis
+# - Gemini 2.5 Flash: classification, embeddings, simple tasks
+# - Always request JSON output via response_mime_type="application/json"
+# - Retry with exponential backoff: 3 attempts, base=1s
+# - Log token usage per call to Prometheus metrics
+# - temperature=0 for analytical, 0.7 for creative generation
+# - Sanitize all user input before sending to Gemini
+# - Cache identical requests in Redis (TTL: 24h)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GCS BUCKET STRUCTURE
+# ─────────────────────────────────────────────────────────────────────────────
+# gs://ci-{env}-raw-ads/{brand_id}/{ad_id}/original.mp4
+# gs://ci-{env}-extracted/{ad_id}/frames/frame_001.jpg
+# gs://ci-{env}-extracted/{ad_id}/audio/audio.wav
+# gs://ci-{env}-models/{brand_id}/{platform}/statistical_profile.json
+# gs://ci-{env}-models/{brand_id}/{platform}/lgbm_model.pkl
+# gs://ci-{env}-brand-assets/{brand_id}/guidelines/
+# gs://ci-{env}-exports/{user_id}/
+#
+# - Use signed URLs for frontend access (15 min expiry)
+# - Object versioning on raw-ads bucket
+# - Lifecycle: extracted frames → Nearline after 30 days
+# Phase 1 local MinIO: create only the four buckets (raw, extracted, models, brand-assets) per PHASE_1_SPEC.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LANGGRAPH PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - State as TypedDict with all required context fields
+# - Each agent = one graph node with single responsibility
+# - Conditional edges for routing decisions
+# - Tools with @tool decorator and clear docstrings
+# - Conversation history in state, persisted to Postgres
+# - Max 5 tool calls per agent turn before returning
+# - Brand context (profile + timeline) always in agent state
+
+# ─────────────────────────────────────────────────────────────────────────────
+# dbt PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - staging/: 1:1 with sources. Only rename, cast, clean.
+# - intermediate/: joins, business logic, no aggregations
+# - marts/: final analytical tables for consumption
+# - Every model has schema.yml with descriptions + tests
+# - Incremental models for ads, performance, fingerprints
+# - Source freshness checks on raw tables
+# - Tags: staging, intermediate, marts, tests
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CELERY TASK PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - One task per file, descriptive name: decompose_ad, compute_profile
+# - Always set soft_time_limit and time_limit
+# - Task chains: ingest → decompose → update_profile → notify
+# - Exponential backoff on transient failures
+# - Dead letter queue for permanently failed tasks
+# - Task state tracked in Postgres for UI visibility
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TERRAFORM PATTERNS
+# ─────────────────────────────────────────────────────────────────────────────
+# - One module per GCP resource type
+# - Environment separation: dev.tfvars, prod.tfvars
+# - State in GCS bucket with locking
+# - No hardcoded values — everything parameterized
+# - Workload Identity for GKE pods (no SA keys)
+# - Private GKE cluster with authorized networks
+# - Cloud SQL: private IP only, require SSL
+# - All GCS buckets: uniform access, no public access
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECURITY REQUIREMENTS
+# ─────────────────────────────────────────────────────────────────────────────
+# - No credentials in code — Secret Manager + Workload Identity
+# - Least privilege IAM per service
+# - JWT: 15-min access token, 7-day refresh token
+# - Rate limiting on public endpoints (Redis-based)
+# - Input validation on all user inputs
+# - HTTPS only — all environments
+# - VPC-native GKE with network policies between services
+# - Audit logging on all GCP resources
+# - CMEK encryption on Cloud SQL and GCS if needed
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TESTING
+# ─────────────────────────────────────────────────────────────────────────────
+# - pytest for all tests
+# - Unit: mock external services (Gemini, GCS, Snowflake)
+# - Integration: testcontainers for Postgres + Redis
+# - Coverage target: 80% on shared/ and business logic
+# - Fixtures for test data (sample ads, fingerprints, profiles)
+# - factory_boy for test object generation
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GIT CONVENTIONS
+# ─────────────────────────────────────────────────────────────────────────────
+# - Branches: feature/{phase}-{desc}, fix/{desc}, chore/{desc}
+# - Commits: conventional (feat:, fix:, docs:, refactor:, test:)
+# - PR required for main — no direct pushes
+# - Squash merge for clean history
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DO NOT
+# ─────────────────────────────────────────────────────────────────────────────
+# - Use Jupyter notebooks for production code
+# - Use pandas in services (use Polars if needed for data processing)
+# - Use print() — use structlog
+# - Hardcode credentials, URLs, or env-specific values
+# - Create 500+ line files or god classes
+# - Use global mutable state
+# - Skip type hints
+# - Use sync DB calls in async endpoints
+# - Store binary files in the database
+# - Write raw SQL in app code — use SQLAlchemy ORM or dbt

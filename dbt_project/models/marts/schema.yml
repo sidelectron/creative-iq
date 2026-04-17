@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: mart_brand_attribute_scores
+    description: "Brand/platform categorical attribute score table with performance indexes."
+    columns:
+      - name: brand_id
+        tests: [not_null]
+      - name: platform
+        tests: [not_null]
+      - name: attribute_name
+        tests: [not_null]
+      - name: attribute_value
+        tests: [not_null]
+      - name: sample_size
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ["brand_id", "platform", "attribute_name", "attribute_value"]
+
+  - name: mart_continuous_attributes
+    description: "Correlation and quantile behavior for continuous creative attributes."
+    columns:
+      - name: brand_id
+        tests: [not_null]
+      - name: attribute_name
+        tests: [not_null]
+      - name: metric_name
+        tests: [not_null]
+
+  - name: mart_ad_summary
+    description: "One-row-per-ad denormalized analytical summary."
+    columns:
+      - name: ad_id
+        tests: [not_null, unique]
+
+  - name: mart_brand_overview
+    description: "Brand/platform overview metrics and top attribute values."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: ["brand_id", "platform"]
+

@@ -1,0 +1,5 @@
+# Copy to backend.hcl (do not commit real bucket names if policy forbids) and run:
+#   terraform init -backend-config=backend.hcl
+#
+bucket = "creativeiq-terraform-state-YOURORG-dev"
+prefix = "terraform/state/dev"

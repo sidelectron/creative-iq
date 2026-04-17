@@ -1,0 +1,55 @@
+with ranked as (
+    select
+        cast(ad_id as varchar) as ad_id,
+        attributes,
+        low_level_features,
+        cast(transcript as varchar) as transcript,
+        cast(processing_duration_seconds as float) as processing_duration_seconds,
+        cast(created_at as timestamp_tz) as created_at,
+        cast(updated_at as timestamp_tz) as updated_at,
+        cast(loaded_at as timestamp_tz) as loaded_at,
+        row_number() over (partition by ad_id order by loaded_at desc) as rn
+    from {{ source('raw', 'creative_fingerprints') }}
+)
+select
+    ad_id,
+    attributes,
+    low_level_features,
+    transcript,
+    processing_duration_seconds,
+    created_at,
+    updated_at,
+    loaded_at,
+    attributes:hook_type::varchar as hook_type,
+    attributes:narrative_arc::varchar as narrative_arc,
+    attributes:emotional_tone::varchar as emotional_tone,
+    attributes:cta_type::varchar as cta_type,
+    attributes:cta_placement::varchar as cta_placement,
+    attributes:cta_text::varchar as cta_text,
+    attributes:product_first_appearance_seconds::float as product_first_appearance_seconds,
+    attributes:product_prominence::varchar as product_prominence,
+    attributes:human_presence::varchar as human_presence,
+    attributes:logo_visible::boolean as logo_visible,
+    attributes:logo_first_appearance_seconds::float as logo_first_appearance_seconds,
+    attributes:logo_position::varchar as logo_position,
+    attributes:text_overlay_style::varchar as text_overlay_style,
+    attributes:background_setting::varchar as background_setting,
+    attributes:music_style::varchar as music_style,
+    attributes:color_palette as color_palette,
+    attributes:color_warmth::float as color_warmth,
+    attributes:color_saturation::float as color_saturation,
+    attributes:scene_count::integer as scene_count,
+    attributes:avg_scene_duration::float as avg_scene_duration,
+    attributes:motion_intensity::float as motion_intensity,
+    attributes:text_density::float as text_density,
+    attributes:face_present_ratio::float as face_present_ratio,
+    attributes:has_music::boolean as has_music,
+    attributes:has_voiceover::boolean as has_voiceover,
+    attributes:audio_energy_mean::float as audio_energy_mean,
+    attributes:silence_ratio::float as silence_ratio,
+    attributes:tempo_bpm::integer as tempo_bpm,
+    attributes:duration_seconds::float as duration_seconds,
+    attributes:word_count::integer as word_count
+from ranked
+where rn = 1
+

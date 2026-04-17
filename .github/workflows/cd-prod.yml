@@ -1,0 +1,84 @@
+name: CD Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag already present in Artifact Registry (e.g. v1.2.3)"
+        required: true
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  REGION: us-east1
+  AR_REPOSITORY: creativeiq-images
+  GKE_CLUSTER: creativeiq-gke-prod
+  KUSTOMIZE_OVERLAY: infra/k8s/overlays/prod
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "value=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Apply manifests
+        run: kubectl apply -k ${{ env.KUSTOMIZE_OVERLAY }}
+
+      - name: Point deployments at release images
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          REG="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.AR_REPOSITORY }}"
+          kubectl set image deployment/creativeiq-api -n creativeiq \
+            api="${REG}/creativeiq-api:${TAG}"
+          kubectl set image deployment/creativeiq-decomposition-worker -n creativeiq \
+            decomposition="${REG}/creativeiq-decomposition:${TAG}"
+          kubectl set image deployment/creativeiq-profile-engine -n creativeiq \
+            profile-engine="${REG}/creativeiq-profile-engine:${TAG}"
+          kubectl set image deployment/creativeiq-chat -n creativeiq \
+            chat="${REG}/creativeiq-chat:${TAG}"
+          kubectl set image deployment/creativeiq-frontend -n creativeiq \
+            frontend="${REG}/creativeiq-frontend:${TAG}"
+
+      - name: Rollout status
+        run: |
+          kubectl rollout status deployment/creativeiq-api -n creativeiq --timeout=600s
+          kubectl rollout status deployment/creativeiq-decomposition-worker -n creativeiq --timeout=600s
+          kubectl rollout status deployment/creativeiq-profile-engine -n creativeiq --timeout=600s
+          kubectl rollout status deployment/creativeiq-chat -n creativeiq --timeout=600s
+          kubectl rollout status deployment/creativeiq-frontend -n creativeiq --timeout=600s

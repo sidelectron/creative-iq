@@ -1,0 +1,7 @@
+industry,platform,audience_segment,baseline_profile,description
+dtc_beauty,tiktok,all,"{""hook_type"":""ugc_style"",""preferred_duration_seconds"":18,""cta_type"":""text_overlay""}","DTC beauty creatives favor UGC-native hooks and short duration."
+b2b_saas,meta,all,"{""hook_type"":""problem_first"",""preferred_duration_seconds"":35,""cta_type"":""end_card""}","B2B SaaS tends to perform with problem framing and explicit CTA."
+food_bev,instagram,all,"{""hook_type"":""lifestyle"",""preferred_duration_seconds"":20,""cta_type"":""text_overlay""}","Food and beverage creatives emphasize sensory lifestyle cues."
+fitness,tiktok,all,"{""hook_type"":""shock_curiosity"",""preferred_duration_seconds"":22,""cta_type"":""verbal""}","Fitness often benefits from high-energy opening hooks."
+consumer_electronics,youtube,all,"{""hook_type"":""product_first"",""preferred_duration_seconds"":40,""cta_type"":""end_card""}","Electronics ads usually foreground product demos and specs."
+

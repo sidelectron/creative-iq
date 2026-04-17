@@ -1,0 +1,237 @@
+# Default: Python services use pre-baked images (multi-stage Dockerfiles; no bind-mount, no pip on boot).
+# Live-reload dev: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d  (or: make up-dev)
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: creative_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ci_user -d creative_intelligence"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - ci-network
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - ci-network
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    networks:
+      - ci-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/creativeiq-frontend/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - ci-network
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      DATABASE_URL: postgresql+asyncpg://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-to-a-long-random-secret-for-local-docker}
+      STORAGE_BUCKET_RAW_ADS: ${STORAGE_BUCKET_RAW_ADS:-ci-dev-raw-ads}
+      STORAGE_BUCKET_EXTRACTED: ${STORAGE_BUCKET_EXTRACTED:-ci-dev-extracted}
+      STORAGE_BUCKET_MODELS: ${STORAGE_BUCKET_MODELS:-ci-dev-models}
+      STORAGE_BUCKET_BRAND_ASSETS: ${STORAGE_BUCKET_BRAND_ASSETS:-ci-dev-brand-assets}
+      MINIO_ENDPOINT_URL: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_USE_SSL: "false"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL_PRO: ${GEMINI_MODEL_PRO:-gemini-2.5-pro}
+      GEMINI_MODEL_FLASH: ${GEMINI_MODEL_FLASH:-gemini-2.5-flash}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - ci-network
+
+  decomposition:
+    build:
+      context: .
+      dockerfile: infra/docker/creativeiq-decomposition/Dockerfile
+    ports:
+      - "9100:9100"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BUCKET_RAW_ADS: ${STORAGE_BUCKET_RAW_ADS:-ci-dev-raw-ads}
+      STORAGE_BUCKET_EXTRACTED: ${STORAGE_BUCKET_EXTRACTED:-ci-dev-extracted}
+      STORAGE_BUCKET_MODELS: ${STORAGE_BUCKET_MODELS:-ci-dev-models}
+      STORAGE_BUCKET_BRAND_ASSETS: ${STORAGE_BUCKET_BRAND_ASSETS:-ci-dev-brand-assets}
+      MINIO_ENDPOINT_URL: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_USE_SSL: "false"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL_PRO: ${GEMINI_MODEL_PRO:-gemini-2.5-pro}
+      GEMINI_MODEL_FLASH: ${GEMINI_MODEL_FLASH:-gemini-2.5-flash}
+      TRANSCRIPTION_METHOD: ${TRANSCRIPTION_METHOD:-gemini}
+      DECOMPOSITION_METRICS_PORT: "9100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - ci-network
+
+  airflow:
+    image: apache/airflow:2.10.3
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      REDIS_URL: redis://redis:6379/0
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-creative_intelligence}
+      SNOWFLAKE_SCHEMA_RAW: ${SNOWFLAKE_SCHEMA_RAW:-raw}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-ci_transform_wh}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-ci_transformer}
+    working_dir: /opt/airflow
+    volumes:
+      - .:/opt/airflow/project
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_home:/opt/airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      bash -c "pip install --no-cache-dir -q psycopg2-binary snowflake-connector-python[pandas] dbt-core dbt-snowflake &&
+      airflow db migrate &&
+      airflow standalone"
+    networks:
+      - ci-network
+
+  profile_engine:
+    build:
+      context: .
+      dockerfile: infra/docker/creativeiq-profile-engine/Dockerfile
+    ports:
+      - "9101:9101"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      REDIS_URL: redis://redis:6379/0
+      STORAGE_BUCKET_MODELS: ${STORAGE_BUCKET_MODELS:-ci-dev-models}
+      MINIO_ENDPOINT_URL: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_REGION: ${MINIO_REGION:-us-east-1}
+      MINIO_USE_SSL: "false"
+      PROFILE_ENGINE_METRICS_PORT: "9101"
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-creative_intelligence}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-ci_transform_wh}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-ci_transformer}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - ci-network
+
+  chat:
+    build:
+      context: .
+      dockerfile: infra/docker/creativeiq-chat/Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://ci_user:${POSTGRES_PASSWORD:-changeme}@postgres:5432/creative_intelligence
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-to-a-long-random-secret-for-local-docker}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL_PRO: ${GEMINI_MODEL_PRO:-gemini-2.5-pro}
+      GEMINI_MODEL_FLASH: ${GEMINI_MODEL_FLASH:-gemini-2.5-flash}
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT:-}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER:-}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD:-}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-creative_intelligence}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-ci_transform_wh}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-ci_transformer}
+      CHAT_HISTORY_WINDOW: "20"
+      CHAT_TOOL_CALL_LIMIT: "5"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ci-network
+
+networks:
+  ci-network:
+    name: ci-network
+
+volumes:
+  pgdata:
+  minio_data:
+  airflow_home:

@@ -1,0 +1,68 @@
+-- CreativeIQ Phase 3 Snowflake bootstrap (RAW + analytical schemas).
+
+CREATE DATABASE IF NOT EXISTS CREATIVE_INTELLIGENCE;
+USE DATABASE CREATIVE_INTELLIGENCE;
+
+CREATE SCHEMA IF NOT EXISTS RAW;
+CREATE SCHEMA IF NOT EXISTS STAGING;
+CREATE SCHEMA IF NOT EXISTS INTERMEDIATE;
+CREATE SCHEMA IF NOT EXISTS MARTS;
+
+CREATE WAREHOUSE IF NOT EXISTS CI_TRANSFORM_WH
+WITH WAREHOUSE_SIZE = 'XSMALL'
+AUTO_SUSPEND = 60
+AUTO_RESUME = TRUE
+INITIALLY_SUSPENDED = TRUE;
+
+CREATE TABLE IF NOT EXISTS RAW.ADS (
+  id VARCHAR NOT NULL,
+  brand_id VARCHAR NOT NULL,
+  external_id VARCHAR,
+  platform VARCHAR NOT NULL,
+  ad_format VARCHAR,
+  title VARCHAR,
+  description VARCHAR,
+  gcs_video_path VARCHAR,
+  thumbnail_gcs_path VARCHAR,
+  duration_seconds FLOAT,
+  resolution VARCHAR,
+  source VARCHAR,
+  status VARCHAR,
+  published_at TIMESTAMP_TZ,
+  deactivated_at TIMESTAMP_TZ,
+  run_duration_days FLOAT,
+  metadata VARIANT,
+  created_at TIMESTAMP_TZ,
+  updated_at TIMESTAMP_TZ,
+  deleted_at TIMESTAMP_TZ,
+  loaded_at TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS RAW.AD_PERFORMANCE (
+  id VARCHAR NOT NULL,
+  ad_id VARCHAR NOT NULL,
+  date DATE NOT NULL,
+  impressions INTEGER,
+  clicks INTEGER,
+  conversions INTEGER,
+  spend FLOAT,
+  revenue FLOAT,
+  video_views INTEGER,
+  video_completions INTEGER,
+  engagement_count INTEGER,
+  metadata VARIANT,
+  loaded_at TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP()
+);
+
+CREATE TABLE IF NOT EXISTS RAW.CREATIVE_FINGERPRINTS (
+  id VARCHAR,
+  ad_id VARCHAR NOT NULL,
+  attributes VARIANT,
+  low_level_features VARIANT,
+  gemini_analysis VARIANT,
+  transcript VARCHAR,
+  processing_duration_seconds FLOAT,
+  created_at TIMESTAMP_TZ,
+  updated_at TIMESTAMP_TZ,
+  loaded_at TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP()
+);

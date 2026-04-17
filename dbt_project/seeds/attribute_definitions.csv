@@ -1,0 +1,16 @@
+attribute_name,attribute_type,possible_values,description,extraction_stage
+hook_type,categorical,"problem_first|product_first|testimonial|question|shock_curiosity|lifestyle|ugc_style|meme_humor",Opening hook strategy of the ad,gemini_creative
+narrative_arc,categorical,"problem_solution|demo_to_cta|story_reveal|comparison|listicle|day_in_life|before_after",Story structure used in the ad,gemini_creative
+emotional_tone,categorical,"urgent|aspirational|funny|educational|emotional|calm|edgy|luxurious",Primary emotional register conveyed by creative,gemini_creative
+cta_type,categorical,"text_overlay|verbal|end_card|inline_button|swipe_up|no_cta",Type of CTA delivery,gemini_creative
+cta_placement,categorical,"beginning|middle|end|throughout",Where CTA appears in the ad timeline,gemini_creative
+color_warmth,continuous,,Warmth index from visual analysis [0..1],visual
+motion_intensity,continuous,,Normalized optical-flow intensity [0..1],visual
+text_density,continuous,,Share of frame area with likely text regions [0..1],visual
+face_present_ratio,continuous,,Fraction of keyframes containing faces [0..1],visual
+duration_seconds,continuous,,Video duration in seconds,media_extract
+scene_count,continuous,,Estimated scene count via keyframes,visual
+product_first_appearance_seconds,continuous,,Timestamp of first product appearance,gemini_creative
+audio_energy_mean,continuous,,Average normalized RMS energy,audio
+silence_ratio,continuous,,Fraction of low-energy (silent) windows,audio
+

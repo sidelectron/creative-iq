@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'creative_intelligence') }}"
+    schema: "{{ env_var('SNOWFLAKE_SCHEMA_RAW', 'raw') }}"
+    loaded_at_field: loaded_at
+    freshness:
+      warn_after: {count: 4, period: hour}
+      error_after: {count: 8, period: hour}
+    tables:
+      - name: ads
+        description: "Raw mirror of PostgreSQL ads table."
+      - name: ad_performance
+        description: "Raw mirror of PostgreSQL ad_performance table."
+      - name: creative_fingerprints
+        description: "Raw mirror of PostgreSQL creative_fingerprints table."
+

@@ -1,0 +1,99 @@
+name: CD Dev
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  REGION: us-east1
+  AR_REPOSITORY: creativeiq-images
+  GKE_CLUSTER: creativeiq-gke-dev
+  KUSTOMIZE_OVERLAY: infra/k8s/overlays/dev
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Build and push images
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SHA: ${{ github.sha }}
+        run: |
+          export DOCKER_BUILDKIT=1
+          REG="${{ env.REGION }}-docker.pkg.dev/${PROJECT_ID}/${{ env.AR_REPOSITORY }}"
+          for svc in api decomposition profile-engine chat frontend; do
+            case "$svc" in
+              api) DF="services/api/Dockerfile" CTX="." ;;
+              decomposition) DF="infra/docker/creativeiq-decomposition/Dockerfile" CTX="." ;;
+              profile-engine) DF="infra/docker/creativeiq-profile-engine/Dockerfile" CTX="." ;;
+              chat) DF="infra/docker/creativeiq-chat/Dockerfile" CTX="." ;;
+              frontend) DF="infra/docker/creativeiq-frontend/Dockerfile" CTX="." ;;
+            esac
+            IMG="creativeiq-${svc}"
+            docker build -f "$DF" -t "${REG}/${IMG}:${SHA}" -t "${REG}/${IMG}:latest" "$CTX"
+            docker push "${REG}/${IMG}:${SHA}"
+            docker push "${REG}/${IMG}:latest"
+          done
+
+      - name: Snapshot current deployment images (rollback reference)
+        run: |
+          kubectl get deploy -n creativeiq -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' || true
+        continue-on-error: true
+
+      - name: Apply Kubernetes (dev)
+        run: kubectl apply -k ${{ env.KUSTOMIZE_OVERLAY }}
+
+      - name: Rollout status
+        run: |
+          kubectl rollout status deployment/creativeiq-api -n creativeiq --timeout=300s
+          kubectl rollout status deployment/creativeiq-decomposition-worker -n creativeiq --timeout=300s
+          kubectl rollout status deployment/creativeiq-profile-engine -n creativeiq --timeout=300s
+          kubectl rollout status deployment/creativeiq-chat -n creativeiq --timeout=300s
+          kubectl rollout status deployment/creativeiq-frontend -n creativeiq --timeout=300s
+
+      - name: Smoke /health (in-cluster)
+        id: smoke
+        run: |
+          set -e
+          kubectl delete pod -n creativeiq -l run=ci-smoke-health --ignore-not-found=true
+          kubectl run ci-smoke-health --rm -i --restart=Never -n creativeiq \
+            --labels=run=ci-smoke-health \
+            --image=curlimages/curl:8.5.0 \
+            -- curl -fsS "http://creativeiq-api.creativeiq.svc.cluster.local:8000/health"
+
+      - name: Rollback on smoke failure
+        if: ${{ always() && steps.smoke.outcome == 'failure' }}
+        run: |
+          kubectl rollout undo deployment/creativeiq-api -n creativeiq || true
+          kubectl rollout undo deployment/creativeiq-decomposition-worker -n creativeiq || true
+          kubectl rollout undo deployment/creativeiq-profile-engine -n creativeiq || true
+          kubectl rollout undo deployment/creativeiq-chat -n creativeiq || true
+          kubectl rollout undo deployment/creativeiq-frontend -n creativeiq || true

@@ -1,0 +1,39 @@
+# Optional override: bind-mount repo + reinstall on start + uvicorn/celery --reload.
+# Use when actively editing Python: slower startup, instant code reload.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# Default `docker compose up` uses baked images only (fast restarts, no pip on boot).
+
+services:
+  api:
+    volumes:
+      - .:/app
+    command: >
+      sh -c "pip install --no-cache-dir -q -e '.[google,chat,generation]' &&
+      uvicorn services.api.app.main:app --host 0.0.0.0 --port 8000 --reload"
+    user: root
+
+  decomposition:
+    volumes:
+      - .:/app
+    command: >
+      sh -c "pip install --no-cache-dir -q -e '.[google,decomposition]' &&
+      celery -A services.decomposition.celery_worker_main:celery_app worker -Q decomposition -l info --concurrency=1"
+    user: root
+
+  profile_engine:
+    volumes:
+      - .:/app
+    command: >
+      sh -c "pip install --no-cache-dir -q -e '.[google,profile_engine,chat,generation]' &&
+      celery -A services.profile_engine.worker:celery_app worker -B -Q profile,generation -l info --concurrency=1"
+    user: root
+
+  chat:
+    volumes:
+      - .:/app
+    command: >
+      sh -c "pip install --no-cache-dir -q -e '.[google,chat,generation]' &&
+      uvicorn services.api.app.main:app --host 0.0.0.0 --port 8010 --reload"
+    user: root

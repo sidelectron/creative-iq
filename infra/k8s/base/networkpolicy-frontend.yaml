@@ -1,0 +1,36 @@
+# Frontend: ingress from GCLB only; egress to API service only (nginx upstream).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: creativeiq-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: creativeiq-frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 35.191.0.0/16
+    - from:
+        - ipBlock:
+            cidr: 130.211.0.0/22
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: creativeiq-api
+      ports:
+        - protocol: TCP
+          port: 8000

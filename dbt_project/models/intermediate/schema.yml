@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: int_ads_unified
+    description: "Ad-level table enriched with aggregated performance metrics."
+    columns:
+      - name: ad_id
+        tests: [not_null, unique]
+
+  - name: int_ads_with_fingerprints
+    description: "One row per ad containing both aggregated performance and creative attributes."
+    columns:
+      - name: ad_id
+        tests: [not_null, unique]
+
+  - name: int_attribute_performance
+    description: "Unpivoted categorical attribute-performance rows for profile scoring."
+    columns:
+      - name: ad_id
+        tests: [not_null]
+      - name: attribute_name
+        tests: [not_null]
+      - name: attribute_value
+        tests: [not_null]
+      - name: brand_id
+        tests: [not_null]
+

@@ -1,0 +1,61 @@
+# Keep Docker build contexts small and stable.
+# This repository uses root build contexts for backend images, and `frontend/` context for the frontend build stage.
+
+# VCS
+.git
+.gitignore
+
+# Python caches / venv
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+.venv/
+venv/
+**/.venv/
+
+# Node / frontend caches
+**/node_modules/
+frontend/node_modules/
+**/.vite/
+**/dist/
+**/build/
+**/.turbo/
+**/.next/
+
+# DB / local state
+**/*.sqlite*
+**/*.db
+**/postgres-data/
+**/pgdata/
+**/redis-data/
+**/minio-data/
+**/data/
+
+# Logs
+**/*.log
+logs/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Terraform local state
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+
+# Build outputs / artifacts
+coverage/
+htmlcov/
+*.egg-info/
+dist/
+build/
