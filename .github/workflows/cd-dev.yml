@@ -35,6 +35,23 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # Clearer than get-gke-credentials "not found": cluster must exist in this project/region.
+      - name: Preflight — GKE cluster exists
+        run: |
+          set -euo pipefail
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          CL="${{ env.GKE_CLUSTER }}"
+          LOC="${{ env.REGION }}"
+          echo "Expecting regional cluster: projects/${PROJECT}/locations/${LOC}/clusters/${CL}"
+          if ! gcloud container clusters describe "$CL" --region="$LOC" --project="$PROJECT" --format='value(name)' >/dev/null 2>&1; then
+            echo "::error::No GKE cluster named '${CL}' in '${LOC}' for project '${PROJECT}'."
+            echo "Provision dev infra (creates this cluster), then re-run deploy:"
+            echo "  bash scripts/terraform_apply_dev_gcp.sh"
+            echo "Docs: README → \"GCP dev: create the cluster with Terraform\"."
+            exit 1
+          fi
+          echo "OK: cluster '${CL}' found."
+
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
