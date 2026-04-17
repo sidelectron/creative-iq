@@ -26,12 +26,31 @@ if [[ ! -f "${TFVARS}" ]]; then
   exit 1
 fi
 
+# Git Bash / MSYS: Terraform MSI installs to "C:\Program Files\Terraform" but that dir is often
+# missing from the PATH Git Bash inherits. Prepend standard locations so `terraform` resolves.
+_terraform_on_path() { command -v terraform >/dev/null 2>&1 || command -v terraform.exe >/dev/null 2>&1; }
+if ! _terraform_on_path; then
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*)
+      for d in "/c/Program Files/Terraform" "/c/Program Files (x86)/Terraform"; do
+        if [[ -x "$d/terraform.exe" ]]; then
+          export PATH="$d:$PATH"
+          break
+        fi
+      done
+      ;;
+  esac
+fi
+
 if ! command -v gcloud >/dev/null 2>&1; then
-  echo "gcloud not found. Use Google Cloud Shell: https://shell.cloud.google.com" >&2
+  echo "gcloud not found. Install Google Cloud SDK, or use Cloud Shell: https://shell.cloud.google.com" >&2
   exit 1
 fi
-if ! command -v terraform >/dev/null 2>&1; then
-  echo "terraform not found. Install: https://developer.hashicorp.com/terraform/install" >&2
+if ! _terraform_on_path; then
+  echo "terraform not found on PATH." >&2
+  echo "  Windows: install MSI from https://developer.hashicorp.com/terraform/install" >&2
+  echo "  Or (PowerShell as Admin): winget install Hashicorp.Terraform" >&2
+  echo "  Or use Google Cloud Shell (Terraform preinstalled): https://shell.cloud.google.com" >&2
   exit 1
 fi
 
