@@ -44,7 +44,8 @@ def test_era_stats_counts_ads_not_events() -> None:
     )
     out = era_service.era_stats(FakeSession(), era=era)
     assert out["ads_count"] == 2
-    assert any(" from ads " in c.lower() for c in calls)
+    # Count must target the ads table (not brand_events). SQLAlchemy may use newlines, not " from ads ".
+    assert any("from ads" in c.lower() for c in calls)
 
 
 def test_events_recompute_dispatch_uses_brand_platforms(monkeypatch) -> None:
