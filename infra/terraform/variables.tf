@@ -143,8 +143,14 @@ variable "terraform_deployer_email" {
 
 variable "artifact_registry_writer_emails" {
   type        = list(string)
-  description = "Service account emails (no serviceAccount: prefix) that can push Docker images. Must include the client_email of the SA in GitHub secret GCP_SA_KEY or CD fails with uploadArtifacts denied."
+  description = "Service account emails (no serviceAccount: prefix) that can push Docker images. Merged with terraform_deployer_email and (when enabled) the Terraform-managed GitHub CD SA; must still match GitHub secret GCP_SA_KEY client_email unless you rotate the secret to the managed SA."
   default     = []
+}
+
+variable "enable_github_cd_service_account" {
+  type        = bool
+  description = "When true, creates creativeiq-gha-{environment}@… with roles/container.developer and grants it roles/artifactregistry.writer on the image repo. Create a JSON key for that SA and set GitHub secret GCP_SA_KEY."
+  default     = false
 }
 
 variable "bootstrap_gemini_api_key" {

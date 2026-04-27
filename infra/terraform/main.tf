@@ -12,7 +12,25 @@ locals {
   artifact_registry_writer_sa_emails = distinct(compact(concat(
     var.terraform_deployer_email != "" ? [replace(var.terraform_deployer_email, "serviceAccount:", "")] : [],
     [for e in var.artifact_registry_writer_emails : replace(e, "serviceAccount:", "")],
+    var.enable_github_cd_service_account ? [google_service_account.github_cd[0].email] : [],
   )))
+}
+
+resource "google_service_account" "github_cd" {
+  count = var.enable_github_cd_service_account ? 1 : 0
+
+  project      = var.project_id
+  account_id   = "creativeiq-gha-${var.environment}"
+  display_name = "GitHub Actions CD (${var.environment})"
+  description  = "Pushes images to Artifact Registry and deploys to GKE via GitHub Actions; use a key for this SA in GCP_SA_KEY."
+}
+
+resource "google_project_iam_member" "github_cd_container_developer" {
+  count = var.enable_github_cd_service_account ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/container.developer"
+  member  = "serviceAccount:${google_service_account.github_cd[0].email}"
 }
 
 module "vpc" {

@@ -39,8 +39,9 @@ composer_image_version    = "composer-3-airflow-2.10.2-build.5"
 
 terraform_deployer_email = ""
 
-# GitHub Actions (secret GCP_SA_KEY): add that key's client_email here, then terraform apply,
-# or grant manually: gcloud artifacts repositories add-iam-policy-binding creativeiq-images
-#   --location=us-east1 --project=creativeiq-493423 --role=roles/artifactregistry.writer
-#   --member="serviceAccount:YOUR_SA@creativeiq-493423.iam.gserviceaccount.com"
+# Creates creativeiq-gha-dev@… with Artifact Registry writer + GKE developer; then create a
+# JSON key for that SA (IAM → SA → Keys) and set GitHub secret GCP_SA_KEY to fix docker push.
+enable_github_cd_service_account = true
+
+# Optional extra pushers (emails without serviceAccount: prefix). Not needed if using the managed SA above.
 artifact_registry_writer_emails = []
