@@ -2,7 +2,7 @@
 
 CreativeIQ is a **creative intelligence platform** for paid social and video advertising. It closes the loop between **ad creative** and **performance data**: ingest ads, decompose them into measurable attributes, correlate those attributes with outcomes, and surface **per-brand profiles**, memory, chat, and brief generation—not blind creative generation, but a knowledge layer that answers *what* to make and *why* it might work.
 
-**Repository:** [github.com/Bhargavi2212/CreativeIQ](https://github.com/Bhargavi2212/CreativeIQ) · **License:** MIT (see `pyproject.toml`)
+**License:** MIT (see `pyproject.toml`)
 
 ---
 
